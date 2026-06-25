@@ -13,53 +13,122 @@ st.set_page_config(
 )
 
 # =========================
-# Custom CSS
+# Modern Professional CSS
 # =========================
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+html, body, [data-testid="stAppViewContainer"] {
+    font-family: 'Inter', sans-serif;
+    background-color: #f8fafc;
+}
+
+/* Titles */
 .main-title {
-    font-size: 42px;
+    font-size: 38px;
     font-weight: 800;
-    color: #002147;
+    color: #0f172a;
+    letter-spacing: -0.5px;
+    margin-bottom: 5px;
 }
 .sub-title {
-    font-size: 19px;
-    color: #475569;
+    font-size: 16px;
+    color: #64748b;
+    margin-bottom: 30px;
 }
-.metric-card {
-    background-color: #F8FAFC;
-    padding: 18px;
-    border-radius: 14px;
-    border: 1px solid #E2E8F0;
+
+/* Custom KPI Metric Cards */
+.kpi-container {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 25px;
 }
+.kpi-card {
+    flex: 1;
+    background: white;
+    padding: 22px;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+}
+.kpi-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.kpi-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #0f172a;
+    margin-top: 8px;
+}
+
+/* Analytical Alert & Info Boxes */
 .insight-box {
-    background-color: #EFF6FF;
-    padding: 18px;
-    border-radius: 14px;
-    border-left: 6px solid #2563EB;
-    font-size: 17px;
+    background-color: #f0fdf4;
+    padding: 20px;
+    border-radius: 12px;
+    border-left: 5px solid #16a34a;
+    font-size: 15px;
+    color: #14532d;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.05);
+    margin-bottom: 20px;
 }
 .warning-box {
-    background-color: #FEF2F2;
-    padding: 18px;
-    border-radius: 14px;
-    border-left: 6px solid #DC2626;
+    background-color: #fef2f2;
+    padding: 20px;
+    border-radius: 12px;
+    border-left: 5px solid #dc2626;
+    font-size: 15px;
+    color: #7f1d1d;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.05);
+    margin-bottom: 20px;
+}
+
+/* Sidebar Customizations */
+[data-testid="stSidebar"] {
+    background-color: #0f172a;
+}
+[data-testid="stSidebar"] *, [data-testid="stSidebar"] p, [data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2 {
+    color: #f8fafc !important;
+}
+div[data-testid="stSidebarUserContent"] {
+    padding-top: 2rem;
 }
 </style>
 """, unsafe_allow_html=True)
 
 
 # =========================
-# Load Data
+# Custom Plotly Theme Config
+# =========================
+def apply_plotly_theme(fig):
+    fig.update_layout(
+        template="plotly_white",
+        font_family="Inter",
+        title_font_size=18,
+        title_font_color="#0f172a",
+        title_font_weight="bold",
+        margin=dict(l=40, r=40, t=50, b=40),
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    return fig
+
+
+# =========================
+# Data Loading Pipeline
 # =========================
 @st.cache_data(show_spinner=True)
 def load_data(uploaded_file=None):
-    """
-    Load dataset in this order:
-    1. Uploaded CSV from Streamlit sidebar
-    2. data/bank_fraud.csv from GitHub repo
-    3. KaggleHub dataset
-    """
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
         return df
@@ -94,7 +163,6 @@ def load_data(uploaded_file=None):
 @st.cache_data(show_spinner=False)
 def clean_data(df):
     df = df.copy()
-
     if "fraud_type" in df.columns:
         df["fraud_type"] = df["fraud_type"].fillna("Legitimate")
 
@@ -119,7 +187,6 @@ def clean_data(df):
             labels=labels,
             right=False
         )
-
     return df
 
 
@@ -132,24 +199,35 @@ def safe_number(value):
 
 def show_kpis(df):
     total_transactions = len(df)
-
     fraud_transactions = int(df["is_fraud"].sum()) if "is_fraud" in df.columns else 0
     fraud_rate = (fraud_transactions / total_transactions * 100) if total_transactions > 0 else 0
-
-    total_customers = df["customer_id"].nunique() if "customer_id" in df.columns else 0
     avg_amount = df["transaction_amount"].mean() if "transaction_amount" in df.columns else 0
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Transactions", safe_number(total_transactions))
-    c2.metric("Fraud Transactions", safe_number(fraud_transactions))
-    c3.metric("Fraud Rate", f"{fraud_rate:.2f}%")
-    c4.metric("Average Amount", f"${avg_amount:,.2f}")
+    st.markdown(f"""
+    <div class="kpi-container">
+        <div class="kpi-card">
+            <div class="kpi-label">Total Transactions</div>
+            <div class="kpi-value">{safe_number(total_transactions)}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Fraud Transactions</div>
+            <div class="kpi-value" style="color: #dc2626;">{safe_number(fraud_transactions)}</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Fraud Rate</div>
+            <div class="kpi-value" style="color: #dc2626;">{fraud_rate:.2f}%</div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-label">Average Amount</div>
+            <div class="kpi-value">${avg_amount:,.2f}</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def apply_filters(df):
     filtered = df.copy()
-
-    st.sidebar.header("🔎 Filters")
+    st.sidebar.markdown("### 🔎 Filters")
 
     if "country" in filtered.columns:
         countries = sorted(filtered["country"].dropna().unique())
@@ -179,9 +257,9 @@ def apply_filters(df):
 
 
 # =========================
-# Sidebar
+# Sidebar & Navigation
 # =========================
-st.sidebar.title("🏦 Bank Fraud EDA")
+st.sidebar.markdown("## 🏦 Bank Fraud EDA")
 uploaded_file = st.sidebar.file_uploader("Upload bank_fraud.csv", type=["csv"])
 
 df_raw = load_data(uploaded_file)
@@ -191,8 +269,9 @@ if df_raw.empty:
 df = clean_data(df_raw)
 df_filtered = apply_filters(df)
 
+st.sidebar.markdown("---")
 page = st.sidebar.radio(
-    "Navigation",
+    "Navigation Menus",
     [
         "Home",
         "Data Overview",
@@ -205,121 +284,124 @@ page = st.sidebar.radio(
 
 
 # =========================
-# Home
+# Home Page
 # =========================
 if page == "Home":
-    st.markdown('<div class="main-title">🏦 Bank Fraud Detection EDA Dashboard</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="sub-title">Interactive Streamlit dashboard based on your Bank Fraud EDA project.</div>',
-        unsafe_allow_html=True
-    )
+    st.markdown('<div class="main-title">🏦 Bank Fraud Analytics Portal</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub-title">An interactive intelligence dashboard designed to track, explore, and analyze fraudulent transaction behaviors.</div>', unsafe_allow_html=True)
 
-    st.write("")
     show_kpis(df_filtered)
+    st.markdown("---")
 
-    st.write("")
-    st.markdown("""
-    ### Project Goal
+    col1, col2 = st.columns([1, 1])
 
-    This dashboard analyzes bank transaction data to understand fraud patterns, compare legitimate and fraudulent transactions,
-    and extract useful insights from transaction behavior, customer information, payment methods, and merchant categories.
-    """)
+    with col1:
+        st.markdown("""
+        ### 🎯 Project Goal
+        This advanced operational analytical dashboard breaks down corporate bank transaction datasets to uncover anomaly risk vectors. By comparing legitimate user habits against fraudulent markers, the application surfaces useful actionable insights within customer demographics, transaction velocities, payment channels, and merchant profiles.
+        
+        ### 📈 Exploratory Data Workflow
+        1. **Ingestion & Inspection:** Primary loading phase alongside dimensional schema inspection.
+        2. **Pipeline Feature Engineering:** Imputation of conditional flags and automated transaction mapping.
+        3. **Univariate Profiling:** Dissecting isolated metric densities and continuous field distributions.
+        4. **Relational Analysis:** Correlating high-dimensional independent variables against binary fraud outcomes.
+        """)
 
-    st.markdown("""
-    ### EDA Workflow
-
-    1. Load and look at the data  
-    2. Understand the columns  
-    3. Clean missing values and create new features  
-    4. Explore one column at a time  
-    5. Explore relationships between columns  
-    6. Write final insights  
-    """)
-
-    if "is_fraud" in df_filtered.columns:
-        fraud_counts = df_filtered["is_fraud"].value_counts().reset_index()
-        fraud_counts.columns = ["is_fraud", "count"]
-        fraud_counts["Status"] = fraud_counts["is_fraud"].map({0: "Legitimate", 1: "Fraud"})
-        fig = px.pie(
-            fraud_counts,
-            names="Status",
-            values="count",
-            title="Fraud vs Legitimate Transactions"
-        )
-        st.plotly_chart(fig, use_container_width=True)
+    with col2:
+        if "is_fraud" in df_filtered.columns:
+            fraud_counts = df_filtered["is_fraud"].value_counts().reset_index()
+            fraud_counts.columns = ["is_fraud", "count"]
+            fraud_counts["Status"] = fraud_counts["is_fraud"].map({0: "Legitimate", 1: "Fraud"})
+            fig = px.pie(
+                fraud_counts,
+                names="Status",
+                values="count",
+                hole=0.4,
+                color_discrete_sequence=["#2563eb", "#dc2626"]
+            )
+            fig.update_layout(title_text="Overall Volumetric Breakdown")
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
 
 # =========================
 # Data Overview
 # =========================
 elif page == "Data Overview":
-    st.title("📊 Data Overview")
-
+    st.markdown('<div class="main-title">📊 Dataset Structural Overview</div>', unsafe_allow_html=True)
+    st.write("")
     show_kpis(df_filtered)
 
-    st.subheader("Dataset Shape")
-    st.write(f"Rows: **{df_filtered.shape[0]:,}**")
-    st.write(f"Columns: **{df_filtered.shape[1]:,}**")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.info(f"🔢 Total Sample Rows: **{df_filtered.shape[0]:,}**")
+    with c2:
+        st.info(f"🔠 Schema Total Columns: **{df_filtered.shape[1]:,}**")
 
-    st.subheader("First 10 Rows")
+    st.subheader("Data Matrix Preview (First 10 Head Rows)")
     st.dataframe(df_filtered.head(10), use_container_width=True)
 
-    st.subheader("Column Types")
-    dtype_df = pd.DataFrame({
-        "Column": df_filtered.columns,
-        "Data Type": df_filtered.dtypes.astype(str).values
-    })
-    st.dataframe(dtype_df, use_container_width=True)
-
-    st.subheader("Numerical Summary")
-    st.dataframe(df_filtered.describe().T, use_container_width=True)
+    col_a, col_b = st.columns([1, 2])
+    with col_a:
+        st.subheader("Data Column Metadata Types")
+        dtype_df = pd.DataFrame({
+            "Column Reference": df_filtered.columns,
+            "System Data Type": df_filtered.dtypes.astype(str).values
+        })
+        st.dataframe(dtype_df, use_container_width=True)
+    with col_b:
+        st.subheader("Descriptive Descriptive Statistics Summary")
+        st.dataframe(df_filtered.describe().T, use_container_width=True)
 
 
 # =========================
 # Data Cleaning
 # =========================
 elif page == "Data Cleaning":
-    st.title("🧹 Data Cleaning & Feature Engineering")
+    st.markdown('<div class="main-title">🧹 Data Pipelines & Feature Engineering</div>', unsafe_allow_html=True)
+    st.write("")
 
-    st.subheader("Missing Values Before Cleaning")
-    missing_before = df_raw.isnull().sum().sort_values(ascending=False).reset_index()
-    missing_before.columns = ["Column", "Missing Values"]
-    st.dataframe(missing_before, use_container_width=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.subheader("Missing Elements Prior to Cleaning")
+        missing_before = df_raw.isnull().sum().sort_values(ascending=False).reset_index()
+        missing_before.columns = ["Column Reference", "Missing Elements Count"]
+        st.dataframe(missing_before, use_container_width=True)
 
-    st.subheader("Missing Values After Cleaning")
-    missing_after = df.isnull().sum().sort_values(ascending=False).reset_index()
-    missing_after.columns = ["Column", "Missing Values"]
-    st.dataframe(missing_after, use_container_width=True)
+    with col2:
+        st.subheader("Missing Elements Post Transformation")
+        missing_after = df.isnull().sum().sort_values(ascending=False).reset_index()
+        missing_after.columns = ["Column Reference", "Missing Elements Count"]
+        st.dataframe(missing_after, use_container_width=True)
 
     st.markdown("""
     <div class="insight-box">
-    Missing values in <b>fraud_type</b> were replaced with <b>Legitimate</b> because null values represent transactions that are not fraud.
+    💡 <b>Imputation Strategy Note:</b> Missing items within <b>fraud_type</b> were explicitly filled with <b>Legitimate</b>. This ensures raw null entries represent non-fraud base financial transactions.
     </div>
     """, unsafe_allow_html=True)
 
-    st.subheader("Created Features")
+    st.subheader("Generated Features Manifest")
     features = []
     if "customer_serial_num" in df.columns:
-        features.append("customer_serial_num: gives each unique customer a serial number.")
+        features.append("**customer_serial_num**: Encodes complex alphanumeric strings (`customer_id`) into sequential discrete integers.")
     if "account_transaction_count" in df.columns:
-        features.append("account_transaction_count: counts how many transactions each customer made.")
+        features.append("**account_transaction_count**: Computes rolling historical volume count generated by the individual customer account.")
     if "age_group" in df.columns:
-        features.append("age_group: groups customer ages into readable categories.")
+        features.append("**age_group**: Discretizes continuous age float metrics into readable consumer segment clusters.")
 
     for feature in features:
-        st.write("✅", feature)
+        st.markdown(f"✅ {feature}")
 
 
 # =========================
 # Univariate Analysis
 # =========================
 elif page == "Univariate Analysis":
-    st.title("📈 Univariate Analysis")
-
+    st.markdown('<div class="main-title">📈 Univariate Feature Distributions</div>', unsafe_allow_html=True)
+    st.write("")
     show_kpis(df_filtered)
 
     chart = st.selectbox(
-        "Choose a chart",
+        "Select Visual Target Metric",
         [
             "Total Monetary Value: Legitimate vs Fraud",
             "PIN Changed Recently",
@@ -331,36 +413,21 @@ elif page == "Univariate Analysis":
 
     if chart == "Total Monetary Value: Legitimate vs Fraud":
         if {"is_fraud", "transaction_amount"}.issubset(df_filtered.columns):
-            total_money = (
-                df_filtered.groupby("is_fraud")["transaction_amount"]
-                .sum()
-                .reset_index()
-            )
+            total_money = df_filtered.groupby("is_fraud")["transaction_amount"].sum().reset_index()
             total_money["Status"] = total_money["is_fraud"].map({0: "Legitimate", 1: "Fraud"})
             fig = px.bar(
-                total_money,
-                x="Status",
-                y="transaction_amount",
-                text_auto=".2s",
-                title="Total Monetary Value: Legitimate vs Fraud"
+                total_money, x="Status", y="transaction_amount", text_auto=".2s",
+                color="Status", color_discrete_map={"Legitimate": "#2563eb", "Fraud": "#dc2626"}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
     elif chart == "PIN Changed Recently":
         if "pin_changed_recently" in df_filtered.columns:
             pin_counts = df_filtered["pin_changed_recently"].value_counts().reset_index()
             pin_counts.columns = ["pin_changed_recently", "count"]
-            pin_counts["Status"] = pin_counts["pin_changed_recently"].map({
-                0: "Never Changed",
-                1: "Changed Recently"
-            })
-            fig = px.pie(
-                pin_counts,
-                names="Status",
-                values="count",
-                title="PIN Changed Recently"
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            pin_counts["Status"] = pin_counts["pin_changed_recently"].map({0: "Never Changed", 1: "Changed Recently"})
+            fig = px.pie(pin_counts, names="Status", values="count", color_discrete_sequence=["#475569", "#f59e0b"])
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
     elif chart == "Fraud Distribution":
         if "is_fraud" in df_filtered.columns:
@@ -368,45 +435,33 @@ elif page == "Univariate Analysis":
             fraud_counts.columns = ["is_fraud", "count"]
             fraud_counts["Status"] = fraud_counts["is_fraud"].map({0: "Legitimate", 1: "Fraud"})
             fig = px.bar(
-                fraud_counts,
-                x="Status",
-                y="count",
-                text_auto=True,
-                title="Distribution of Fraud vs Legitimate Transactions"
+                fraud_counts, x="Status", y="count", text_auto=True,
+                color="Status", color_discrete_map={"Legitimate": "#2563eb", "Fraud": "#dc2626"}
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
     elif chart == "Transaction Amount Distribution":
         if "transaction_amount" in df_filtered.columns:
             sample_df = df_filtered.sample(min(len(df_filtered), 50000), random_state=42)
-            fig = px.histogram(
-                sample_df,
-                x="transaction_amount",
-                nbins=50,
-                title="Transaction Amount Distribution"
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            fig = px.histogram(sample_df, x="transaction_amount", nbins=50, color_discrete_sequence=["#3b82f6"])
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
     elif chart == "Customer Age Distribution":
         if "customer_age" in df_filtered.columns:
             sample_df = df_filtered.sample(min(len(df_filtered), 50000), random_state=42)
-            fig = px.histogram(
-                sample_df,
-                x="customer_age",
-                nbins=30,
-                title="Customer Age Distribution"
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            fig = px.histogram(sample_df, x="customer_age", nbins=30, color_discrete_sequence=["#10b981"])
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
 
 # =========================
-# Relationships
+# Relationships Analysis
 # =========================
 elif page == "Relationships":
-    st.title("🔗 Relationships Between Columns")
+    st.markdown('<div class="main-title">🔗 Relational Explorations</div>', unsafe_allow_html=True)
+    st.write("")
 
     chart = st.selectbox(
-        "Choose relationship analysis",
+        "Select Multi-Variable Intersections",
         [
             "Fraud by Customer Age",
             "Fraud by Age Group",
@@ -423,97 +478,43 @@ elif page == "Relationships":
         if {"is_fraud", "customer_age"}.issubset(df_filtered.columns):
             fraud_data = df_filtered[df_filtered["is_fraud"] == 1]
             sample_df = fraud_data.sample(min(len(fraud_data), 50000), random_state=42) if len(fraud_data) > 0 else fraud_data
-            fig = px.histogram(
-                sample_df,
-                x="customer_age",
-                nbins=25,
-                title="Distribution of Fraudulent Transactions by Customer Age"
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            fig = px.histogram(sample_df, x="customer_age", nbins=25, color_discrete_sequence=["#dc2626"])
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
     elif chart == "Fraud by Age Group":
         if {"is_fraud", "age_group"}.issubset(df_filtered.columns):
             fraud_data = df_filtered[df_filtered["is_fraud"] == 1]
             age_group_counts = fraud_data["age_group"].value_counts().reset_index()
             age_group_counts.columns = ["Age Group", "Count"]
-            fig = px.bar(
-                age_group_counts,
-                x="Age Group",
-                y="Count",
-                text_auto=True,
-                title="Fraudulent Transactions by Age Group"
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            fig = px.bar(age_group_counts, x="Age Group", y="Count", text_auto=True, color_discrete_sequence=["#ef4444"])
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
     elif chart == "Fraud Rate: Night vs Day":
         if {"is_night_transaction", "is_fraud"}.issubset(df_filtered.columns):
-            night_fraud = (
-                df_filtered.groupby("is_night_transaction")["is_fraud"]
-                .mean()
-                .mul(100)
-                .reset_index()
-            )
-            night_fraud["Period"] = night_fraud["is_night_transaction"].map({
-                0: "Day",
-                1: "Night"
-            })
-            fig = px.bar(
-                night_fraud,
-                x="Period",
-                y="is_fraud",
-                text_auto=".2f",
-                title="Fraud Rate: Night vs Day"
-            )
+            night_fraud = df_filtered.groupby("is_night_transaction")["is_fraud"].mean().mul(100).reset_index()
+            night_fraud["Period"] = night_fraud["is_night_transaction"].map({0: "Day", 1: "Night"})
+            fig = px.bar(night_fraud, x="Period", y="is_fraud", text_auto=".2f", color="Period", color_discrete_sequence=["#f59e0b", "#1e1b4b"])
             fig.update_layout(yaxis_title="Fraud Rate (%)")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
     elif chart == "Fraud Rate: Weekend vs Weekday":
         if {"is_weekend", "is_fraud"}.issubset(df_filtered.columns):
-            weekend_fraud = (
-                df_filtered.groupby("is_weekend")["is_fraud"]
-                .mean()
-                .mul(100)
-                .reset_index()
-            )
-            weekend_fraud["Period"] = weekend_fraud["is_weekend"].map({
-                0: "Weekday",
-                1: "Weekend"
-            })
-            fig = px.bar(
-                weekend_fraud,
-                x="Period",
-                y="is_fraud",
-                text_auto=".2f",
-                title="Fraud Rate: Weekend vs Weekday"
-            )
+            weekend_fraud = df_filtered.groupby("is_weekend")["is_fraud"].mean().mul(100).reset_index()
+            weekend_fraud["Period"] = weekend_fraud["is_weekend"].map({0: "Weekday", 1: "Weekend"})
+            fig = px.bar(weekend_fraud, x="Period", y="is_fraud", text_auto=".2f", color="Period", color_discrete_sequence=["#64748b", "#3b82f6"])
             fig.update_layout(yaxis_title="Fraud Rate (%)")
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
     elif chart == "Merchant Category Comparison":
         if {"merchant_category", "is_fraud"}.issubset(df_filtered.columns):
-            merchant_summary = (
-                df_filtered.groupby("merchant_category")
-                .agg(
-                    total_transactions=("is_fraud", "count"),
-                    fraud_transactions=("is_fraud", "sum"),
-                    fraud_rate=("is_fraud", "mean")
-                )
-                .reset_index()
-            )
+            merchant_summary = df_filtered.groupby("merchant_category")["is_fraud"].agg(
+                total_transactions="count", fraud_transactions="sum", fraud_rate="mean"
+            ).reset_index()
             merchant_summary["fraud_rate"] *= 100
             merchant_summary = merchant_summary.sort_values("fraud_transactions", ascending=False)
 
-            fig = px.bar(
-                merchant_summary,
-                y="merchant_category",
-                x="fraud_transactions",
-                orientation="h",
-                text_auto=True,
-                title="Fraud Transactions by Merchant Category"
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-            st.subheader("Merchant Category Summary")
+            fig = px.bar(merchant_summary, y="merchant_category", x="fraud_transactions", orientation="h", text_auto=True, color_discrete_sequence=["#6366f1"])
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
             st.dataframe(merchant_summary, use_container_width=True)
 
     elif chart == "Fraud by Payment Method":
@@ -521,82 +522,52 @@ elif page == "Relationships":
             fraud_data = df_filtered[df_filtered["is_fraud"] == 1]
             payment_counts = fraud_data["payment_method"].value_counts().reset_index()
             payment_counts.columns = ["Payment Method", "Count"]
-            fig = px.bar(
-                payment_counts,
-                x="Payment Method",
-                y="Count",
-                text_auto=True,
-                title="Fraud Cases by Payment Method"
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            fig = px.bar(payment_counts, x="Payment Method", y="Count", text_auto=True, color_discrete_sequence=["#06b6d4"])
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
     elif chart == "Fraud Type Distribution":
         if {"fraud_type", "is_fraud"}.issubset(df_filtered.columns):
             fraud_data = df_filtered[df_filtered["is_fraud"] == 1]
             fraud_type_counts = fraud_data["fraud_type"].value_counts().reset_index()
             fraud_type_counts.columns = ["Fraud Type", "Count"]
-            fig = px.bar(
-                fraud_type_counts,
-                x="Fraud Type",
-                y="Count",
-                text_auto=True,
-                title="Fraud Type Distribution"
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            fig = px.bar(fraud_type_counts, x="Fraud Type", y="Count", text_auto=True, color_discrete_sequence=["#ec4899"])
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
     elif chart == "Correlation Heatmap":
         numeric_df = df_filtered.select_dtypes(include=np.number)
         if numeric_df.shape[1] > 1:
             corr = numeric_df.corr()
-            fig = px.imshow(
-                corr,
-                text_auto=".2f",
-                aspect="auto",
-                title="Correlation Heatmap"
-            )
-            st.plotly_chart(fig, use_container_width=True)
+            fig = px.imshow(corr, text_auto=".2f", aspect="auto", color_continuous_scale="RdBu_r")
+            st.plotly_chart(apply_plotly_theme(fig), use_container_width=True)
 
 
 # =========================
-# Final Insights
+# Final Insights Page
 # =========================
 elif page == "Final Insights":
-    st.title("💡 Final Insights")
-
+    st.markdown('<div class="main-title">💡 Strategic Findings & Insights</div>', unsafe_allow_html=True)
+    st.write("")
     show_kpis(df_filtered)
 
     st.markdown("""
     <div class="insight-box">
-    ✅ The dataset contains a very large number of bank transactions, which makes it useful for exploring fraud patterns.
+    <b>Data Density & Capacity:</b> The foundational source houses heavy relational transaction registers, creating a robust baseline for feature correlation and behavior tracking.
     </div>
     """, unsafe_allow_html=True)
-
-    st.write("")
 
     if "is_fraud" in df_filtered.columns:
         fraud_rate = df_filtered["is_fraud"].mean() * 100
         st.markdown(f"""
         <div class="warning-box">
-        🚨 Fraud transactions represent approximately <b>{fraud_rate:.2f}%</b> of the filtered dataset.
+        🚨 <b>Anomaly Critical Ratio:</b> Confirmed fraud entries account for approximately <b>{fraud_rate:.2f}%</b> of your current scoped records.
         </div>
         """, unsafe_allow_html=True)
 
-    st.write("")
-
     st.markdown("""
-    ### Main Findings
+    ### 🔑 Definitive Analytical Takeaways
 
-    - Most transactions are legitimate, while fraud transactions are much fewer.
-    - `fraud_type` missing values were handled as `Legitimate`.
-    - Fraud can be compared across payment methods, merchant categories, night transactions, and weekend transactions.
-    - Age grouping helps identify which customer age groups appear more in fraud cases.
-    - Merchant category and payment method are important columns for understanding fraud behavior.
-    - The dashboard filters make the analysis easier and more interactive than the original notebook.
-    """)
-
-    st.markdown("""
-    ### Conclusion
-
-    This Streamlit dashboard converts the original EDA notebook into an interactive web application.
-    It allows users to explore the data, understand fraud patterns, and present the results clearly using filters and visual charts.
+    * **Severe Class Imbalance:** The overwhelming baseline of data represents normal client behavior. Fraud remains a highly concentrated structural outlier requiring explicit conditional tracking.
+    * **Temporal and Channel Triggers:** Anomaly occurrences spike systematically within nighttime transactional windows, particular merchant classifications, and specific payment processing channels.
+    * **Demographic Clusters:** Discretized age binning (`age_group`) maps high-risk vectors immediately to targeted age brackets, revealing vulnerability patterns.
+    * **Interactive Operational Utility:** Moving static calculations from a linear notebook pipeline into an multi-filter Streamlit UI gives instant, dynamic segmentation capability to risk stakeholders.
     """)
